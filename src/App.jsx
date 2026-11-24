@@ -113,6 +113,8 @@ export default function App() {
     setSelected(null);
     setMobileTab('graph');
     setPlayer({ i: 0, playing: true, speed: 4 });
+    // on narrow screens the graph shrinks to make room for the step controls: re-fit it
+    if (window.matchMedia('(max-width: 900px)').matches) setTimeout(() => setFocusRequest({ ids: null }), 60);
   };
 
   const stepSccColors = useMemo(() => step?.done || new Map(), [step]);

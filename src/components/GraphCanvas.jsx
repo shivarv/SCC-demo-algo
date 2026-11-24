@@ -126,6 +126,9 @@ function createEngine(container, onSelect) {
     showLabels: true,
     alpha: 1,
     fly: null,
+    follow: null, // ids to keep framed (null = whole graph)
+    // phones start zoomed to fit the whole graph; wide screens keep the closer opening shot
+    following: window.matchMedia('(max-width: 900px)').matches,
   };
 
   function radiusOf(entry) {
@@ -392,10 +395,50 @@ function createEngine(container, onSelect) {
       controls.target.lerpVectors(f.fromT, f.toT, k);
       camera.position.lerpVectors(f.fromP, f.toP, k);
       if (f.t >= 1) state.fly = null;
+    } else if (state.following) {
+      follow();
     }
     controls.update();
     composer.render();
     labelRenderer.render(scene, camera);
+  }
+
+  // ---------- framing ----------
+  // smallest camera distance from c (looking along -dir) at which every node fits the view
+  const fu = new THREE.Vector3();
+  const fv = new THREE.Vector3();
+  const fp = new THREE.Vector3();
+  function fitDistance(ms, c, dir) {
+    const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const th = tv * camera.aspect;
+    fu.crossVectors(camera.up, dir).normalize();
+    fv.crossVectors(dir, fu);
+    let d = 40;
+    for (const m of ms) {
+      fp.subVectors(m.pos, c);
+      const z = fp.dot(dir);
+      d = Math.max(d, z + (Math.abs(fp.dot(fu)) + 22) / th, z + (Math.abs(fp.dot(fv)) + 12) / tv);
+    }
+    return d * 1.08 + 10;
+  }
+  function bounds(ids) {
+    const ms = (ids?.length ? ids : [...nodes.keys()]).map((id) => nodes.get(id)).filter(Boolean);
+    if (!ms.length) return null;
+    const c = new THREE.Vector3();
+    ms.forEach((m) => c.add(m.pos));
+    c.divideScalar(ms.length);
+    return { c, ms };
+  }
+  // after a fit, keep the framing as the force layout keeps spreading, until the user grabs the camera
+  const followT = new THREE.Vector3();
+  function follow() {
+    const b = bounds(state.follow);
+    if (!b) return;
+    const dir = followT.subVectors(camera.position, controls.target).normalize();
+    controls.target.lerp(b.c, 0.05);
+    const want = fitDistance(b.ms, controls.target, dir);
+    const cur = camera.position.distanceTo(controls.target);
+    camera.position.copy(controls.target).addScaledVector(dir, cur + (want - cur) * 0.05);
   }
 
   // ---------- picking ----------
@@ -416,6 +459,7 @@ function createEngine(container, onSelect) {
   const onDown = (ev) => {
     down = [ev.clientX, ev.clientY];
     controls.autoRotate = false;
+    state.following = false;
   };
   const onUp = (ev) => {
     if (down && Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) < 5) onSelect(pick(ev));
@@ -424,6 +468,7 @@ function createEngine(container, onSelect) {
   renderer.domElement.addEventListener('pointermove', onMove);
   renderer.domElement.addEventListener('pointerdown', onDown);
   renderer.domElement.addEventListener('pointerup', onUp);
+  renderer.domElement.addEventListener('wheel', () => (state.following = false), { passive: true });
 
   const ro = new ResizeObserver(() => {
     const w = container.clientWidth;
@@ -445,20 +490,18 @@ function createEngine(container, onSelect) {
     setGraph,
     setBubbles,
     focus(ids) {
-      const ms = (ids?.length ? ids : [...nodes.keys()]).map((id) => nodes.get(id)).filter(Boolean);
-      if (!ms.length) return;
-      const c = new THREE.Vector3();
-      ms.forEach((m) => c.add(m.pos));
-      c.divideScalar(ms.length);
-      let r = 20;
-      ms.forEach((m) => (r = Math.max(r, m.pos.distanceTo(c))));
+      const b = bounds(ids);
+      if (!b) return;
+      const { c, ms } = b;
+      state.follow = ids?.length ? ids : null;
+      state.following = true;
       const dir = tmpV.subVectors(camera.position, controls.target).normalize();
       state.fly = {
         t: 0,
         fromT: controls.target.clone(),
         toT: c,
         fromP: camera.position.clone(),
-        toP: c.clone().addScaledVector(dir, r * 2.6 + 40),
+        toP: c.clone().addScaledVector(dir, fitDistance(ms, c, dir)),
       };
     },
     setAutoRotate(v) {
