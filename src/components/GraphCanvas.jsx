@@ -428,6 +428,7 @@ function createEngine(container, onSelect) {
   const ro = new ResizeObserver(() => {
     const w = container.clientWidth;
     const h = container.clientHeight;
+    if (!w || !h) return; // hidden (e.g. behind a mobile tab) — keep the last size
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     renderer.setSize(w, h);
