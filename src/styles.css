@@ -292,9 +292,11 @@ a:hover { text-decoration: underline; }
   .tab-files .left { display: grid; grid-template-rows: minmax(160px, 42%) 1fr; }
   .tab-info .right { display: block; }
 
-  /* while stepping through Tarjan on the graph tab: controls as a bottom sheet */
+  /* while stepping through Tarjan on the graph tab: controls get their own row
+     under the graph, so the canvas shrinks to the space left instead of being covered */
+  .app.playing.tab-graph { grid-template-rows: auto minmax(0, 1fr) auto auto; }
   .playing.tab-graph .right {
-    display: block; align-self: end; max-height: 50%;
+    display: block; grid-row: 3; max-height: 46vh; max-height: 46dvh;
     border-top: 1px solid var(--line-2); border-radius: 14px 14px 0 0;
     box-shadow: 0 -10px 30px #0008;
   }
@@ -315,7 +317,7 @@ a:hover { text-decoration: underline; }
   .transport button { padding: 9px 0; }
 
   .tabbar {
-    display: flex; grid-row: 3; grid-column: 1;
+    display: flex; grid-row: -2 / -1; grid-column: 1;
     border-top: 1px solid var(--line); background: #080a15;
     padding-bottom: env(safe-area-inset-bottom);
   }
