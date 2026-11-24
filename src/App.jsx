@@ -25,6 +25,7 @@ export default function App() {
   const [showLabels, setShowLabels] = useState(true);
   const [focusRequest, setFocusRequest] = useState(null);
   const [player, setPlayer] = useState(null); // { i, playing, speed }
+  const [mobileTab, setMobileTab] = useState('graph'); // files | graph | info (narrow screens only)
 
   const graph = useMemo(() => buildGraph(files), [files]);
   const result = useMemo(() => tarjan(graph.nodes, graph.edges), [graph]);
@@ -110,6 +111,7 @@ export default function App() {
     if (!events.length) return;
     setView('files');
     setSelected(null);
+    setMobileTab('graph');
     setPlayer({ i: 0, playing: true, speed: 4 });
   };
 
@@ -147,7 +149,7 @@ export default function App() {
   const fileStatus = (path) => ({ cycleColor: cycleColor.get(path) });
 
   return (
-    <div className="app">
+    <div className={`app tab-${mobileTab}${player && step ? ' playing' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <div className="logo"><span /><span /><span /></div>
@@ -233,11 +235,24 @@ export default function App() {
             cycles={cycles}
             selected={selected}
             onSelect={select}
-            onFocus={(ids) => { setView('files'); setFocusRequest({ ids }); }}
+            onFocus={(ids) => { setView('files'); setMobileTab('graph'); setFocusRequest({ ids }); }}
             sccColorOf={sccColorOf}
           />
         )}
       </aside>
+
+      <nav className="tabbar">
+        <button className={mobileTab === 'files' ? 'on' : ''} onClick={() => setMobileTab('files')}>
+          <span className="tab-icon">▤</span>Code
+        </button>
+        <button className={mobileTab === 'graph' ? 'on' : ''} onClick={() => setMobileTab('graph')}>
+          <span className="tab-icon">◉</span>Graph
+        </button>
+        <button className={mobileTab === 'info' ? 'on' : ''} onClick={() => setMobileTab('info')}>
+          <span className="tab-icon">≡</span>{player && step ? 'Steps' : 'Insights'}
+          {cycles.length > 0 && <span className="tab-badge">{cycles.length}</span>}
+        </button>
+      </nav>
     </div>
   );
 }
